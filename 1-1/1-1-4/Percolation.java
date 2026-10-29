@@ -270,73 +270,149 @@ public class Percolation {
     }
 
     /**
-     * Main method demonstrating usage and verifying functionality on sample test cases.
+     * Prints an ASCII representation of the grid.
+     * [O] represents an open site, [X] represents a blocked site.
+     */
+    public void printGrid() {
+        System.out.println("\nCurrent Grid State (O = Open, X = Blocked):");
+        for (int r = 0; r < n; r++) {
+            for (int c = 0; c < n; c++) {
+                if (isOpen(r, c)) {
+                    System.out.print("[O] ");
+                } else {
+                    System.out.print("[X] ");
+                }
+            }
+            System.out.println();
+        }
+    }
+
+    /**
+     * Main method to interactively take user input:
+     * 1. Grid size N
+     * 2. Open nodes (either count M followed by M pairs, or row-col pairs until 'done'/EOF)
+     * 3. Calculates and displays whether the system percolates.
      */
     public static void main(String[] args) {
+        java.util.Scanner scanner = new java.util.Scanner(System.in);
+
         System.out.println("==================================================");
-        System.out.println("  Percolation System with Disjoint-Set (WQUPC)    ");
+        System.out.println("         Percolation Simulation System            ");
         System.out.println("==================================================");
 
-        // Test Case 1: 3x3 Grid
-        System.out.println("\n--- Test Case 1: 3x3 Grid ---");
-        int n = 3;
-        Percolation p = new Percolation(n);
-
-        System.out.println("Initial percolation state (should be false): " + p.percolates());
-        
-        // Open a non-percolating vertical path
-        p.open(0, 1);
-        p.open(1, 1);
-        System.out.println("Opened (0,1) and (1,1). Percolates? " + p.percolates() + " (expected: false)");
-        
-        // Open bottom site to complete path
-        p.open(2, 1);
-        System.out.println("Opened (2,1). Percolates? " + p.percolates() + " (expected: true)");
-        System.out.println("Total open sites: " + p.numberOfOpenSites() + " (expected: 3)");
-
-        // Test Case 2: Edge Case N = 1
-        System.out.println("\n--- Test Case 2: Edge Case N = 1 ---");
-        Percolation p1 = new Percolation(1);
-        System.out.println("1x1 grid initially percolates? " + p1.percolates() + " (expected: false)");
-        p1.open(0, 0);
-        System.out.println("1x1 grid after opening (0,0) percolates? " + p1.percolates() + " (expected: true)");
-
-        // Test Case 3: Corner Sites and Non-percolating Diagonal
-        System.out.println("\n--- Test Case 3: 3x3 Diagonal (Corners) ---");
-        Percolation pDiag = new Percolation(3);
-        pDiag.open(0, 0); // Top-left corner
-        pDiag.open(1, 1); // Center
-        pDiag.open(2, 2); // Bottom-right corner
-        System.out.println("Opened (0,0), (1,1), (2,2) diagonally.");
-        System.out.println("Percolates? " + pDiag.percolates() + " (expected: false, diagonal adjacency is not connected)");
-
-        pDiag.open(0, 1);
-        pDiag.open(1, 2);
-        System.out.println("Opened (0,1) and (1,2) to connect the path. Percolates? " + pDiag.percolates() + " (expected: true)");
-
-        // Test Case 4: Bounds validation
-        System.out.println("\n--- Test Case 4: Exception Handling ---");
-        try {
-            p.open(-1, 0);
-            System.out.println("FAIL: Should have thrown IndexOutOfBoundsException");
-        } catch (IndexOutOfBoundsException e) {
-            System.out.println("PASS: Caught expected exception for negative index: " + e.getMessage());
+        // 1. Read Grid Size N
+        System.out.print("Enter grid size N: ");
+        int n = -1;
+        while (scanner.hasNext()) {
+            if (scanner.hasNextInt()) {
+                n = scanner.nextInt();
+                if (n > 0) {
+                    break;
+                }
+                System.out.print("N must be a positive integer (N > 0). Please enter N: ");
+            } else {
+                String token = scanner.next();
+                System.out.print("Invalid input '" + token + "'. Please enter a positive integer for N: ");
+            }
         }
 
-        try {
-            p.open(3, 3);
-            System.out.println("FAIL: Should have thrown IndexOutOfBoundsException");
-        } catch (IndexOutOfBoundsException e) {
-            System.out.println("PASS: Caught expected exception for out-of-bound index: " + e.getMessage());
+        if (n <= 0) {
+            System.out.println("No valid input provided. Exiting.");
+            return;
         }
 
-        try {
-            new Percolation(0);
-            System.out.println("FAIL: Should have thrown IllegalArgumentException");
-        } catch (IllegalArgumentException e) {
-            System.out.println("PASS: Caught expected exception for N <= 0: " + e.getMessage());
+        Percolation percolation = new Percolation(n);
+        System.out.printf("%nInitialized %dx%d grid (0-indexed: rows 0 to %d, cols 0 to %d).%n", n, n, n - 1, n - 1);
+
+        System.out.println("\nEnter open sites:");
+        System.out.println("  * Format: 'row col' (e.g. 0 1)");
+        System.out.println("  * You can enter the count of open sites M first, OR");
+        System.out.println("  * Enter 'row col' pairs directly. Type 'done' or end input when finished.");
+        System.out.print("> ");
+
+        scanner.nextLine(); // consume remaining newline after reading N
+
+        Integer expectedCount = null;
+        int opened = 0;
+
+        while (scanner.hasNextLine()) {
+            String line = scanner.nextLine().trim();
+            if (line.isEmpty()) {
+                if (expectedCount != null && opened >= expectedCount) {
+                    break;
+                }
+                continue;
+            }
+
+            if (line.equalsIgnoreCase("done") || line.equalsIgnoreCase("exit") || line.equalsIgnoreCase("q")) {
+                break;
+            }
+
+            String[] tokens = line.split("\\s+");
+
+            // If a single integer is provided first, interpret as number of sites M
+            if (expectedCount == null && tokens.length == 1) {
+                try {
+                    int m = Integer.parseInt(tokens[0]);
+                    if (m >= 0) {
+                        expectedCount = m;
+                        System.out.printf("Reading %d open site(s):%n", expectedCount);
+                        if (expectedCount == 0) {
+                            break;
+                        }
+                        System.out.print("> ");
+                        continue;
+                    }
+                } catch (NumberFormatException ignored) {
+                }
+            }
+
+            // Process pairs of integers on this line
+            int idx = 0;
+            while (idx < tokens.length) {
+                if (idx + 1 >= tokens.length) {
+                    System.out.println("  [Warning] Incomplete pair for token '" + tokens[idx] + "'. Expected 'row col'.");
+                    break;
+                }
+
+                try {
+                    int row = Integer.parseInt(tokens[idx]);
+                    int col = Integer.parseInt(tokens[idx + 1]);
+                    idx += 2;
+
+                    percolation.open(row, col);
+                    opened++;
+                    System.out.printf("  [Opened] Site (%d, %d)%n", row, col);
+
+                    if (expectedCount != null && opened >= expectedCount) {
+                        break;
+                    }
+                } catch (NumberFormatException e) {
+                    System.out.println("  [Error] Invalid integer in coordinates: " + tokens[idx] + " " + tokens[idx + 1]);
+                    idx += 2;
+                } catch (IndexOutOfBoundsException e) {
+                    System.out.println("  [Error] " + e.getMessage());
+                }
+            }
+
+            if (expectedCount != null && opened >= expectedCount) {
+                break;
+            }
+
+            System.out.print("> ");
         }
 
-        System.out.println("\nAll tests completed successfully!");
+        // Display visual grid representation
+        percolation.printGrid();
+
+        // Calculate and report percolation status
+        boolean doesPercolate = percolation.percolates();
+        System.out.println("==================================================");
+        System.out.printf("Grid Size:             %dx%d (%d total sites)%n", n, n, n * n);
+        System.out.printf("Open Sites:            %d / %d (%.2f%%)%n", percolation.numberOfOpenSites(), n * n,
+                          (percolation.numberOfOpenSites() * 100.0) / (n * n));
+        System.out.printf("System Percolates:     %s%n", doesPercolate ? "YES" : "NO");
+        System.out.println("==================================================");
     }
 }
+
